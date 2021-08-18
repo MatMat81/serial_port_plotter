@@ -43,8 +43,10 @@ int main(int argc, char *argv[])
     MainWindow w;
     QIcon appIcon(":/serial_port_plotter/icons/serial_port_icon.icns");
     w.setWindowIcon(appIcon);
-    w.setWindowTitle("Serial Port Plotter v1.3.0");
+    w.setWindowTitle("Serial Port Plotter v1.3.1"); // matmat 08.08.21
     w.show();
-
+    
     return a.exec();
 }
+
+ 

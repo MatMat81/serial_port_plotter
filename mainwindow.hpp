@@ -27,11 +27,25 @@
 #ifndef MAINWINDOW_HPP
 #define MAINWINDOW_HPP
 
+// #include <QSettings> //matmat
 #include <QMainWindow>
 #include <QtSerialPort/QtSerialPort>
 #include <QSerialPortInfo>
 #include "helpwindow.hpp"
 #include "qcustomplot/qcustomplot.h"
+/*
+#define DATACONFIG  QReadIni::getInstance()->getIniConfig() //matmat
+
+typedef struct IniConfig //matmat
+{
+    QString ip;                //IP address
+    QString port;              //port
+    QString dataBaseVersion;   //Database version
+    QString dataBaseName;      //Database name
+    QString userName;          //User name
+    QString passWord;          //Password
+}IniConfig;
+*/
 
 #define START_MSG       '$'
 #define END_MSG         ';'
@@ -43,8 +57,12 @@
 #define CUSTOM_LINE_COLORS   14
 #define GCP_CUSTOM_LINE_COLORS 4
 
+#define BeginnColorHTML '<p><span style="color: '
+#define MiddleColorHTML ';">'
+#define EndColorHTML '</span></p>'
 namespace Ui {
     class MainWindow;
+    
 }
 
 class MainWindow : public QMainWindow
@@ -72,7 +90,7 @@ private slots:
     void onMouseMoveInPlot (QMouseEvent *event);                                          // Displays coordinates of mouse pointer when clicked in plot in status bar
     void on_spinPoints_valueChanged (int arg1);                                           // Spin box controls how many data points are collected and displayed
     void on_mouse_wheel_in_plot (QWheelEvent *event);                                     // Makes wheel mouse works while plotting
-
+   
     /* Used when a channel is selected (plot or legend) */
     void channel_selection (void);
     void legend_double_click (QCPLegend *legend, QCPAbstractLegendItem *item, QMouseEvent *event);
@@ -82,22 +100,29 @@ private slots:
     void on_actionHow_to_use_triggered();
     void on_actionPause_Plot_triggered();
     void on_actionClear_triggered();
+    void on_actionClearTxt_triggered(); // matmat textbox leeren
     void on_actionRecord_stream_triggered();
+    void on_sendSerialMsg_clicked(); //matmat send Serial MSG 
 
     void on_pushButton_TextEditHide_clicked();
+    void on_pushButton_AutoScroll_clicked();
+    void on_sendSerialMsgTxt_returnPressed();
+    void atest();
 
     void on_pushButton_ShowallData_clicked();
 
     void on_pushButton_AutoScale_clicked();
+    void AutoScalePlot();
+    void SendData();
 
     void on_pushButton_ResetVisible_clicked();
 
     void on_listWidget_Channels_itemDoubleClicked(QListWidgetItem *item);
 
     void on_pushButton_clicked();
-
-signals:
-    void portOpenFail();                                                                  // Emitted when cannot open port
+   
+signals: 
+    void portOpenFail();                                                    // Emitted when cannot open port
     void portOpenOK();                                                                    // Emitted when port is open
     void portClosed();                                                                    // Emitted when port is closed
     void newData(QStringList data);                                                       // Emitted when new data has arrived
@@ -115,16 +140,21 @@ private:
     int dataPointNumber;                                                                  // Keep track of data points
     /* Channels of data (number of graphs) */
     int channels;
-
+    int scrollbarPrevValue;
+    
+    bool autoScroll = true;
+    bool autoScalePlot = false;
     /* Data format */
     int data_format;   
 
     /* Textbox Related */
-    bool filterDisplayedData = true;
+    bool filterDisplayedData = false; // Standard alle Daten anzeigen
 
     /* Listview Related */
     QStringListModel *channelListModel;
     QStringList     channelStrList;
+
+
 
     //-- CSV file to save data
     QFile* m_csvFile = nullptr;
@@ -135,7 +165,9 @@ private:
     QTime timeOfFirstData;                                                                // Record the time of the first data point
     double timeBetweenSamples;                                                            // Store time between samples
     QSerialPort *serialPort;                                                              // Serial port; runs in this thread
-    QString receivedData;                                                                 // Used for reading from the port
+    QString receivedData;    // String einkommender Daten
+    QStringList receivedDataTxt;    // String Namen
+    QStringList receivedDataTxtTmp;    // String Namen
     int STATE;                                                                            // State of recieiving message from port
     int NUMBER_OF_POINTS;                                                                 // Number of points plotted
     HelpWindow *helpWindow;
@@ -146,6 +178,5 @@ private:
                                                                                           // Open the inside serial port with these parameters
     void openPort(QSerialPortInfo portInfo, int baudRate, QSerialPort::DataBits dataBits, QSerialPort::Parity parity, QSerialPort::StopBits stopBits);
 };
-
-
+ 
 #endif                                                                                    // MAINWINDOW_HPP

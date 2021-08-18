@@ -1,5 +1,29 @@
 # Serial Port Plotter
 
+
+## [1.3.1] - 2021-08-18
+## Screenshot
+
+![Serial Port Plotter screenshot](res/screen_1.3.png)
+### Info
+
+- Built with QT 5.15.21
+- QT libraries updated and new plot features implemented
+
+### Added
+
+- send Data function
+- Autoscoll funktion
+- painted variables
+- optimized for arduino
+
+### Changed
+
+- Legend on the left for a better view of the latest data
+- Autoscale modification
+- 
+## [1.3.0] - 2018-08-01
+
 This is a Windows application that displays real time data from serial port. The application is 32-bit and built with Qt and QCustomPlot library.
 
 ## Features

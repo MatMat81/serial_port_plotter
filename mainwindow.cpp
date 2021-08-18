@@ -23,11 +23,13 @@
 **           Contact: b.kereziev@gmail.com                                **
 **           Date: 29.12.14                                               **
 ****************************************************************************/
-
+//#include <QSettings> //matmat
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 #include <x86intrin.h>
 
+// #include <QTextCodec> //matmat
+// #include <QDebug> //matmat
 /**
  * @brief Constructor
  * @param parent
@@ -36,11 +38,21 @@ MainWindow::MainWindow (QWidget *parent) :
   QMainWindow (parent),
   ui (new Ui::MainWindow),
 
+
   /* Populate colors */
   line_colors{
       /* For channel data (gruvbox palette) */
       /* Light */
-      QColor ("#fb4934"),
+
+
+
+
+
+      //QColor c("#000000"); // Use QColor c(0, 0, 0) instead
+      //c.setNamedColor("#001122"); // Use c = QColor(0, 0x11, 0x22) instead
+
+
+      QColor ("#fb4934"), // matmat
       QColor ("#b8bb26"),
       QColor ("#fabd2f"),
       QColor ("#83a598"),
@@ -55,6 +67,7 @@ MainWindow::MainWindow (QWidget *parent) :
       QColor ("#b16286"),
       QColor ("#689d6a"),
       QColor ("#d65d0e"),
+     
    },
   gui_colors {
       /* Monochromatic for axes and ui */
@@ -86,6 +99,7 @@ MainWindow::MainWindow (QWidget *parent) :
 
   /* Slot for printing coordinates */
   connect (ui->plot, SIGNAL (mouseMove (QMouseEvent*)), this, SLOT (onMouseMoveInPlot (QMouseEvent*)));
+  // connect(ui->textEdit_UartWindow, SIGNAL(mouseMove(QMouseEvent *)), this, SLOT(onMouseMoveInPlot(QMouseEvent *)));
 
   /* Channel selection */
   connect (ui->plot, SIGNAL(selectionChangedByUser()), this, SLOT(channel_selection()));
@@ -93,6 +107,9 @@ MainWindow::MainWindow (QWidget *parent) :
 
   /* Connect update timer to replot slot */
   connect (&updateTimer, SIGNAL (timeout()), this, SLOT (replot()));
+
+  //connect (ui->textEdit_UartWindow, SIGNAL(  &QScrollBar::valueChanged), this, SLOT (atest()));
+
 
   m_csvFile = nullptr;
 }
@@ -104,6 +121,12 @@ MainWindow::MainWindow (QWidget *parent) :
  */
 MainWindow::~MainWindow()
 {
+  /*
+    QSettings settings("setup.ini", QSettings::IniFormat);
+    settings.beginGroup("Setup_Parameter");
+    parameter1_value = settings.value("Parameter1","0").toInt();
+    settings.endGroup();
+*/
     closeCsvFile();
       
     if (serialPort != nullptr)
@@ -119,6 +142,9 @@ MainWindow::~MainWindow()
  */
 void MainWindow::createUI()
 {
+    // QSettings settings("Settings.ini", QSettings::IniFormat); //matmat
+   //  QSettings biaoti= configIniRead->value("/PlotColors/Channel01").toString();
+
     /* Check if there are any ports at all; if not, disable controls and return */
     if (QSerialPortInfo::availablePorts().size() == 0)
       {
@@ -135,14 +161,15 @@ void MainWindow::createUI()
       }
 
     /* Populate baud rate combo box with standard rates */
+    ui->comboBaud->addItem ("9600");
+    ui->comboBaud->addItem ("19200");
+    ui->comboBaud->addItem ("57600");
+    ui->comboBaud->addItem ("115200");
     ui->comboBaud->addItem ("1200");
     ui->comboBaud->addItem ("2400");
     ui->comboBaud->addItem ("4800");
-    ui->comboBaud->addItem ("9600");
-    ui->comboBaud->addItem ("19200");
+
     ui->comboBaud->addItem ("38400");
-    ui->comboBaud->addItem ("57600");
-    ui->comboBaud->addItem ("115200");
     /* And some not-so-standard */
     ui->comboBaud->addItem ("128000");
     ui->comboBaud->addItem ("153600");
@@ -152,7 +179,7 @@ void MainWindow::createUI()
     ui->comboBaud->addItem ("921600");
 
     /* Select 115200 bits by default */
-    ui->comboBaud->setCurrentIndex (7);
+    ui->comboBaud->setCurrentIndex (3); //Matmat Standard Baudrate beim Start
 
     /* Populate data bits combo box */
     ui->comboData->addItem ("8 bits");
@@ -169,6 +196,8 @@ void MainWindow::createUI()
 
     /* Initialize the listwidget */
     ui->listWidget_Channels->clear();
+
+    
 }
 /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -214,10 +243,10 @@ void MainWindow::setupPlot()
     ui->plot->yAxis->setTickLabelColor (gui_colors[2]);
     ui->plot->yAxis->setTickLabelFont (font);
     /* Range */
-    //ui->plot->yAxis->setRange (ui->spinAxesMin->value(), ui->spinAxesMax->value());
+    ui->plot->yAxis->setRange (ui->spinAxesMin->value(), ui->spinAxesMax->value()); // matmat
     /* User can change Y axis tick step with a spin box */
     //ui->plot->yAxis->setAutoTickStep (false);
-    //ui->plot->yAxis->(ui->spinYStep->value());
+    //ui->plot->yAxis->(ui->spinYStep->value()); 
 
     /* User interactions Drag and Zoom are allowed only on X axis, Y is fixed manually by UI control */
     ui->plot->setInteraction (QCP::iRangeDrag, true);
@@ -234,8 +263,13 @@ void MainWindow::setupPlot()
     ui->plot->legend->setFont (legendFont);
     ui->plot->legend->setBrush (gui_colors[3]);
     ui->plot->legend->setBorderPen (gui_colors[2]);
+
+
+
+            //>QCPLayoutInset(Qt::AlignLeft); // matmat Layout Position für Legend
+
     /* By default, the legend is in the inset layout of the main axis rect. So this is how we access it to change legend placement */
-    ui->plot->axisRect()->insetLayout()->setInsetAlignment (0, Qt::AlignTop|Qt::AlignRight);
+    ui->plot->axisRect()->insetLayout()->setInsetAlignment (0, Qt::AlignTop|Qt::AlignLeft); //matmat
 }
 /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -274,17 +308,20 @@ void MainWindow::openPort (QSerialPortInfo portInfo, int baudRate, QSerialPort::
     connect (this, SIGNAL(portOpenOK()), this, SLOT(portOpenedSuccess()));                 // Connect port signals to GUI slots
     connect (this, SIGNAL(portOpenFail()), this, SLOT(portOpenedFail()));
     connect (this, SIGNAL(portClosed()), this, SLOT(onPortClosed()));
-    connect (this, SIGNAL(newData(QStringList)), this, SLOT(onNewDataArrived(QStringList)));
-    connect (serialPort, SIGNAL(readyRead()), this, SLOT(readData()));
+    // Event erstelle "newData" mit neuen Daten:
+    connect (serialPort, SIGNAL(readyRead()), this, SLOT(readData())); // data to text
+    // Event wenn sich "newData" ändert:
+    connect (this, SIGNAL(newData(QStringList)), this, SLOT(onNewDataArrived(QStringList))); // plot data
+    connect (this, SIGNAL(newData(QStringList)), this, SLOT(saveStream(QStringList))); // save to csv
     
-    connect (this, SIGNAL(newData(QStringList)), this, SLOT(saveStream(QStringList)));
-
+    // öffne COM-Port:
     if (serialPort->open (QIODevice::ReadWrite))
       {
         serialPort->setBaudRate (baudRate);
         serialPort->setParity (parity);
         serialPort->setDataBits (dataBits);
         serialPort->setStopBits (stopBits);
+        // serialPort->setFlowControl(NoFlowControl);
         emit portOpenOK();
       }
     else
@@ -406,6 +443,7 @@ void MainWindow::onNewDataArrived(QStringList newData)
                 ui->plot->addGraph();
                 ui->plot->graph()->setPen (line_colors[channels % CUSTOM_LINE_COLORS]);
                 ui->plot->graph()->setName (QString("Channel %1").arg(channels));
+                receivedDataTxt.append(QString("Channel %1").arg(channels));  // setze Namen
                 if(ui->plot->legend->item(channels))
                 {
                     ui->plot->legend->item (channels)->setTextColor (line_colors[channels % CUSTOM_LINE_COLORS]);
@@ -457,6 +495,8 @@ void MainWindow::on_spinAxesMin_valueChanged(int arg1)
     ui->plot->yAxis->setRangeLower (arg1);
     ui->plot->replot();
 }
+
+
 /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /**
@@ -480,40 +520,94 @@ void MainWindow::readData()
 
         if(!data.isEmpty()) {                                                             // If the byte array is not empty
             char *temp = data.data();                                                     // Get a '\0'-terminated char* to the data
-
-            if (!filterDisplayedData){
-                ui->textEdit_UartWindow->append(data);
+            // ui->textEdit_UartWindow->setTextColor(QColor (170, 170, 170, 255)); // setze Standardfarbe
+            ui->textEdit_UartWindow->setTextColor(gui_colors[2]); // setze Standardfarbe
+            if (!filterDisplayedData)
+            { // Button filter the data = true
+              // Print all Data line:
+              ui->textEdit_UartWindow->append(temp); // print all data
+              ui->textEdit_UartWindow->append("End!");
+              ui->textEdit_UartWindow->append(QString::number(data.size()));
             }
-            for(int i = 0; temp[i] != '\0'; i++) {                                        // Iterate over the char*
-                switch(STATE) {                                                           // Switch the current state of the message
-                case WAIT_START:                                                          // If waiting for start [$], examine each char
-                    if(temp[i] == START_MSG) {                                            // If the char is $, change STATE to IN_MESSAGE
-                        STATE = IN_MESSAGE;
-                        receivedData.clear();                                             // Clear temporary QString that holds the message
-                        break;                                                            // Break out of the switch
-                    }
-                    break;
-                case IN_MESSAGE:                                                          // If state is IN_MESSAGE
-                    if(temp[i] == END_MSG) {                                              // If char examined is ;, switch state to END_MSG
-                        STATE = WAIT_START;
-                        QStringList incomingData = receivedData.split(' ');               // Split string received from port and put it into list
-                        if(filterDisplayedData){
-                            ui->textEdit_UartWindow->append(receivedData);
-                        }
-                        emit newData(incomingData);                                       // Emit signal for data received with the list
-                        break;
-                    }
-                    else if (isdigit (temp[i]) || isspace (temp[i]) || temp[i] =='-' || temp[i] =='.')
-                      {
-                        /* If examined char is a digit, and not '$' or ';', append it to temporary string */
-                        receivedData.append(temp[i]);
+            if (1==1){
+              // laufe Char durch:
+              for(int i = 0; temp[i] != '\0'; i++) {                                        // Iterate over the char*
+                  switch(STATE) {                                                           // Switch the current state of the message
+                  case WAIT_START:                                                          // If waiting for start [$], examine each char
+                      if(temp[i] == START_MSG) {                                            // If the char is $, change STATE to IN_MESSAGE
+                          STATE = IN_MESSAGE;
+                          receivedData.clear();
+                          //receivedDataTxt.clear();                                          // Clear temporary QString that holds the message
+                          break;                                                            // Break out of the switch
                       }
-                    break;
-                default: break;
-                }
+                      break;
+                  case IN_MESSAGE:                                                          // If state is IN_MESSAGE
+                      if(temp[i] == END_MSG) {                                              // If char examined is ;, switch state to END_MSG
+                        STATE = WAIT_START;
+                        QStringList incomingData = receivedData.split(' '); // Split string received from port and put it into list
+                        if (filterDisplayedData) { // Button filter the data = true
+                          int iChannels=0;
+                          QString myHtml = "";
+
+                          if (!receivedDataTxtTmp.isEmpty()) {
+                            receivedDataTxt = receivedDataTxtTmp; // Übergabe Daten
+                            receivedDataTxtTmp.clear(); // leere temp
+                          }
+
+                          myHtml.append(QString("<p>"));        // öffne Abschnitt
+                          QTextCursor cursor = ui->textEdit_UartWindow->textCursor(); // hole Cursor
+                          // receivedData.append('Channel ' & i); // Channel Info
+                          for (int channel = 0; channel < incomingData.size(); ++channel) { // foreach(QString item, incomingData) {
+                            QString colorHtml = ("#ffffff");
+                            if (channel < CUSTOM_LINE_COLORS) {
+                              colorHtml = QString(line_colors[channel].name()); //  line_colors[channels % CUSTOM_LINE_COLORS].HexArgb;
+                            }
+                            myHtml.append(QString("<span style='color:"));      // beginn Color
+                            myHtml.append(colorHtml);                      // setze Farbe
+                            myHtml.append(QString(";'>"));                // mitte Color
+                            myHtml.append(QString(receivedDataTxt.at(iChannels))); // setze Text
+                            //myHtml.append(QString::number(iChannels));     // setze Nummer
+                            myHtml.append(QString(": "));                           // setze Doppelpunkt
+                            myHtml.append(QString("</span>"));                  // end Color
+                            myHtml.append(incomingData.at(channel));       // setze Daten
+                            myHtml.append(QString("  ||  "));                           // setze Tab
+                            iChannels++;
+                          }
+                          myHtml.append(QString("</p>"));        // schließe Abschnitt
+                          cursor.movePosition(QTextCursor::End); // Ende Dokument
+                          
+                          ui->textEdit_UartWindow->setTextCursor(cursor);
+                          ui->textEdit_UartWindow->append("\n"); // neue Zeile
+                          ui->textEdit_UartWindow->insertHtml(myHtml);
+                        }
+                        emit newData(incomingData);          // erstelle Plot-Daten, um Plot-Event zu triggern                           // Emit signal for data received with the list
+                        break;
+                      }
+                      else if (isdigit (temp[i]) || isspace (temp[i]) || temp[i] =='-' || temp[i] =='.')
+                        {
+                          /* If examined char is a digit, and not '$' or ';', append it to temporary string */
+                          receivedData.append(temp[i]); // Teilstring nur für textedit und Plot
+                          
+                        }
+                      break;
+                  default: break;
+                  }
+              }
+            }
+            if (autoScroll == true) { // Autoscroll
+              ui->textEdit_UartWindow->moveCursor(QTextCursor::End, QTextCursor::MoveAnchor);
+            } else{
+             /* if (ui->textEdit_UartWindow->verticalScrollBar()->value()) {
+                scrollbarPrevValue = ui->textEdit_UartWindow->verticalScrollBar()->value(); // save new current Scroll-Position
+              }*/
+              ui->textEdit_UartWindow->verticalScrollBar()->setSliderPosition(scrollbarPrevValue);
+            }
+            if (autoScalePlot == true){
+              AutoScalePlot();
             }
         }
     }
+
 }
 /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -572,7 +666,7 @@ void MainWindow::onMouseMoveInPlot(QMouseEvent *event)
  * @brief Send plot wheelmouse to spinbox
  * @param event
  */
-void MainWindow::on_mouse_wheel_in_plot (QWheelEvent *event)
+void MainWindow::on_mouse_wheel_in_plot(QWheelEvent *event)
 {
   QWheelEvent inverted_event = QWheelEvent(event->posF(), event->globalPosF(),
                                            -event->pixelDelta(), -event->angleDelta(),
@@ -580,6 +674,7 @@ void MainWindow::on_mouse_wheel_in_plot (QWheelEvent *event)
   QApplication::sendEvent (ui->spinPoints, &inverted_event);
 }
 /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 
 /**
  * @brief Select both line and legend (channel)
@@ -625,9 +720,18 @@ void MainWindow::legend_double_click(QCPLegend *legend, QCPAbstractLegendItem *i
         if (ok)
           {
             plItem->plottable()->setName(newName);
+            receivedDataTxtTmp.clear(); // leere Liste
             for(int i=0; i<ui->plot->graphCount(); i++)
             {
-                ui->listWidget_Channels->item(i)->setText(ui->plot->graph(i)->name());
+                ui->listWidget_Channels->item(i)->setText(ui->plot->graph(i)->name()); // Text zuweisen
+                /*
+                QMessageBox msgBox;
+                // hier QString stringValue = QString::number(incomingData.at(channel)); // .toQString();
+                msgBox.setText(ui->plot->graph(i)->name()); //QString::number(i));
+                //msgBox.setText(incomingData.at(channel));
+                msgBox.exec();
+*/
+                receivedDataTxtTmp.append(QString(ui->plot->graph(i)->name())); // setze neue Namen
             }
             ui->plot->replot();
           }
@@ -656,6 +760,7 @@ void MainWindow::on_actionHow_to_use_triggered()
   helpWindow->setWindowTitle ("How to use this application");
   helpWindow->show();
 }
+
 
 /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -785,7 +890,7 @@ void MainWindow::on_actionDisconnect_triggered()
       ui->actionDisconnect->setEnabled (false);
       ui->actionRecord_stream->setEnabled(true);
       receivedData.clear();                                                             // Clear received string
-
+     // receivedDataTxt.clear();   
       ui->savePNGButton->setEnabled (false);
       enable_com_controls (true);
     }
@@ -807,6 +912,20 @@ void MainWindow::on_actionClear_triggered()
     ui->plot->replot();
 }
 /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+/**
+ * @brief Clear all channels data and reset text area
+ *
+ * This function will not delete the channel itself (legend will stay)
+ */
+void MainWindow::on_actionClearTxt_triggered()
+{
+
+  ui->textEdit_UartWindow->clear(); 
+ 
+}
+/** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 
 /**
  * @brief Open a new CSV file to save received data
@@ -884,15 +1003,23 @@ void MainWindow::on_pushButton_ShowallData_clicked()
     }
 }
 
-void MainWindow::on_pushButton_AutoScale_clicked()
-{
+void MainWindow::on_pushButton_AutoScale_clicked(){
+  if (ui->pushButton_AutoScale->isChecked()) {
+    ui->pushButton_AutoScale->setText("AutoScale Yaxis ON");
+    autoScalePlot = true;
+  } else {
+    ui->pushButton_AutoScale->setText("AutoScale Yaxis OFF");
+    autoScalePlot = false;
+  }
+}
+
+void MainWindow::AutoScalePlot(){
     ui->plot->yAxis->rescale(true);
     ui->spinAxesMax->setValue(int(ui->plot->yAxis->range().upper) + int(ui->plot->yAxis->range().upper*0.1));
     ui->spinAxesMin->setValue(int(ui->plot->yAxis->range().lower) + int(ui->plot->yAxis->range().lower*0.1));
 }
 
-void MainWindow::on_pushButton_ResetVisible_clicked()
-{
+void MainWindow::on_pushButton_ResetVisible_clicked(){
     for(int i=0; i<ui->plot->graphCount(); i++)
     {
         ui->plot->graph(i)->setVisible(true);
@@ -917,6 +1044,46 @@ void MainWindow::on_listWidget_Channels_itemDoubleClicked(QListWidgetItem *item)
     ui->plot->replot();
 }
 
+void MainWindow::SendData(){
+  //matmat send Serial MSG
+  if (connected)
+  {
+    /*
+      QMessageBox msgBox;
+      msgBox.setText(ui->sendSerialMsgTxt->text());
+      msgBox.exec();
+      */
+    QString data = ui->sendSerialMsgTxt->text().toStdString().data();
+    if (data.length() > 0)
+    {
+      QTextCursor cursor = ui->textEdit_UartWindow->textCursor(); // hole Cursor
+      QString colorHtml = ("#ffffff");
+      QString myHtml = "";
+      myHtml.append(QString("<p>"));                 // öffne Abschnitt
+      myHtml.append(QString("<span style='color:")); // beginn Color
+      myHtml.append(colorHtml);                      // setze Farbe
+      myHtml.append(QString(";'>send:"));            // mitte Color
+      myHtml.append(QString(data));
+      myHtml.append(QString("</span>"));
+      myHtml.append(QString("</p>")); // schließe Abschnitt
+
+      ui->textEdit_UartWindow->setTextCursor(cursor);
+      ui->textEdit_UartWindow->append("\n"); // neue Zeile
+      ui->textEdit_UartWindow->insertHtml(myHtml);
+
+      //const QChar * data = ui->sendSerialMsgTxt->text().data(); //   .toStdString().data();
+      // QString data = ui->sendSerialMsgTxt->text().toStdString().c_str();
+      //serialPort->write()  //(data);
+
+      serialPort->write(ui->sendSerialMsgTxt->text().toStdString().data(), ui->sendSerialMsgTxt->text().length());
+      // serialPort->write(ui->sendSerialMsgTxt->text().toStdString().c_str(), 1024);
+      // serialPort->write(QString(ui->sendSerialMsgTxt->text().toStdString().c_str()));
+      ui->sendSerialMsgTxt->setText(""); // leeren
+    }
+  }
+}
+
+
 void MainWindow::on_pushButton_clicked()
 {
     ui->comboPort->clear();
@@ -926,3 +1093,37 @@ void MainWindow::on_pushButton_clicked()
         ui->comboPort->addItem (port.portName());
     }
 }
+
+void MainWindow::on_sendSerialMsg_clicked()
+{
+  SendData();
+}
+
+void MainWindow::on_pushButton_AutoScroll_clicked()
+{
+  if (ui->pushButton_AutoScroll->isChecked())
+  {
+    ui->pushButton_AutoScroll->setText("Autoscroll ON");
+    autoScroll = true;
+  } else {
+    ui->pushButton_AutoScroll->setText("Autoscroll OFF");
+    autoScroll = false;
+    scrollbarPrevValue = ui->textEdit_UartWindow->verticalScrollBar()->value(); // save current Scroll-Position
+
+    //funzt ui->textEdit_UartWindow->verticalScrollBar()->setValue(ui->textEdit_UartWindow->verticalScrollBar()->minimum());
+    //  ui->textEdit_UartWindow->verticalScrollBar()->setSliderPosition(0);
+  }
+}
+
+void  MainWindow::atest(){
+  QMessageBox msgBox;
+  msgBox.setText("test");
+  msgBox.exec();
+
+}
+
+void MainWindow::on_sendSerialMsgTxt_returnPressed()
+{
+  SendData();
+}
+
